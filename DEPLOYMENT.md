@@ -1,6 +1,17 @@
 # VedaAI Assessment Creator — Deployment Guide
 
-## Architecture
+This document describes the production deployment configurations, environment settings, and troubleshooting guidelines for VedaAI.
+
+## Live Deployed Services
+
+* **Frontend App (Vercel)**: [https://vedaai-assessment-creator-web.vercel.app/](https://vedaai-assessment-creator-web.vercel.app/)
+* **Backend API Base URL**: [https://vedaai-api-kk5b.onrender.com](https://vedaai-api-kk5b.onrender.com)
+* **Backend API Health Check**: [https://vedaai-api-kk5b.onrender.com/health](https://vedaai-api-kk5b.onrender.com/health)
+* **GitHub Repository**: [https://github.com/nextgendev2029/vedaai-assessment-creator](https://github.com/nextgendev2029/vedaai-assessment-creator)
+
+---
+
+## Deployed Architecture
 
 ```
 ┌──────────────┐     ┌──────────────────┐     ┌─────────────────┐
@@ -11,85 +22,70 @@
        │ WebSocket          │ Redis Pub/Sub             │
        ▼                    ▼                           │
 ┌──────────────┐     ┌──────────────────┐     ┌────────▼────────┐
-│  Socket.IO   │◀───▶│   Worker         │────▶│  Redis/Upstash  │
-│  (on API)    │     │   (Render BG)    │     └─────────────────┘
+│  Socket.IO   │◀───▶│  Embedded Worker │────▶│   Upstash Redis │
+│  (on API)    │     │   (within API)   │     └─────────────────┘
 └──────────────┘     └──────────────────┘
 ```
 
-## Services Required
-
-| Service       | Platform       | Type                |
-|---------------|----------------|---------------------|
-| Frontend      | Vercel         | Next.js project     |
-| API           | Render         | Web Service         |
-| Worker        | Render         | Background Worker   |
-| MongoDB       | MongoDB Atlas  | M0 Free / M2+       |
-| Redis         | Upstash / etc  | Redis 7+ with TLS   |
+For the live demo, VedaAI runs in **Embedded Worker Mode** (`ENABLE_EMBEDDED_WORKER=true`) inside a single Render Web Service. This enables both the Express REST/WebSocket API and the BullMQ background processes (assessment and PDF compilation) to share resources on a single free-tier container.
 
 ---
 
-## Render — API Service
+## Render — Web Service Configuration
+
+To deploy the API and embedded workers on Render:
 
 | Setting         | Value                                        |
 |-----------------|----------------------------------------------|
+| Service Type    | Web Service                                  |
 | Root Directory  | `.` (monorepo root)                          |
 | Build Command   | `pnpm install && pnpm build:api`             |
 | Start Command   | `pnpm start:api`                             |
-| Health Check    | `GET /api/health`                            |
+| Health Check    | `/health`                                    |
 | Environment     | Node                                         |
 
-### Environment Variables
+### Environment Variables for API Web Service
 
-```
+```env
 PORT=4000
 NODE_ENV=production
-WEB_URL=https://your-app.vercel.app
-ALLOWED_ORIGINS=https://your-app.vercel.app
-MONGO_URI=mongodb+srv://USER:PASS@cluster.mongodb.net/vedaai?retryWrites=true&w=majority
-REDIS_URL=rediss://:PASSWORD@HOST:PORT
+WEB_URL=https://vedaai-assessment-creator-web.vercel.app
+ALLOWED_ORIGINS=https://vedaai-assessment-creator-web.vercel.app
+ENABLE_EMBEDDED_WORKER=true
+MONGO_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/vedaai?retryWrites=true&w=majority
+REDIS_URL=rediss://default:<password>@<host>:<port>
 AI_PROVIDER=gemini
 AI_FALLBACK_TO_GROQ=true
 AI_FALLBACK_TO_MOCK=true
-GEMINI_API_KEY=your-key
+GEMINI_API_KEY=AIzaSy...
 GEMINI_MODEL=gemini-2.5-flash
 GEMINI_TEMPERATURE=0.4
-GROQ_API_KEY=your-key
+GROQ_API_KEY=gsk_...
 GROQ_MODEL=llama-3.1-8b-instant
 GROQ_TEMPERATURE=0.4
 ```
 
 ---
 
-## Render — Free Tier / Single Service Option
+## Alternative Production Setup (Separate Paid Worker)
 
-If you want to deploy on Render's free tier without paying for a separate Background Worker service, you can run both the API server and the BullMQ background workers in the same Web Service process:
+For high-volume production, run separate instances for the web server and background workers to avoid resource contention:
 
-1. Follow the **Render — API Service** setup instructions above.
-2. In the environment variables for your Web Service, add:
-   ```
-   ENABLE_EMBEDDED_WORKER=true
-   ```
-3. Do **not** create the Render Background Worker service.
-4. **Caveat**: On Render's free tier, Web Services spin down after 15 minutes of inactivity. When spun down, background workers will be paused. When a user visits the site, the service will wake up, and processing of queued tasks will resume automatically.
-5. For high-volume production use cases, it is recommended to keep `ENABLE_EMBEDDED_WORKER=false` and run a separate, dedicated Background Worker.
-
----
-
-## Render — Worker Service
-
-| Setting         | Value                                        |
-|-----------------|----------------------------------------------|
-| Root Directory  | `.` (monorepo root)                          |
-| Build Command   | `pnpm install && pnpm build:api`             |
-| Start Command   | `pnpm start:worker`                          |
-| Environment     | Node                                         |
-
-> The worker uses the **same env vars** as the API service.
-> It connects to the same MongoDB and Redis instances.
+1. **API Web Service**:
+   * Set `ENABLE_EMBEDDED_WORKER=false`
+   * Keep Start Command as `pnpm start:api`
+2. **Background Worker (Render Background Worker)**:
+   * Create a new Background Worker service.
+   * Root Directory: `.`
+   * Build Command: `pnpm install && pnpm build:api`
+   * Start Command: `pnpm start:worker`
+   * Reuse the identical Environment Variables config as the Web Service.
 
 ---
 
-## Vercel — Frontend
+## Vercel — Frontend Configuration
+
+To deploy the Next.js frontend on Vercel:
 
 | Setting           | Value                       |
 |-------------------|-----------------------------|
@@ -98,63 +94,46 @@ If you want to deploy on Render's free tier without paying for a separate Backgr
 | Build Command     | `pnpm install && pnpm build`|
 | Install Command   | `pnpm install`              |
 
-### Environment Variables
+### Environment Variables for Vercel
 
+```env
+NEXT_PUBLIC_API_URL=https://vedaai-api-kk5b.onrender.com
+NEXT_PUBLIC_SOCKET_URL=https://vedaai-api-kk5b.onrender.com
 ```
-NEXT_PUBLIC_API_URL=https://your-api.onrender.com
-NEXT_PUBLIC_SOCKET_URL=https://your-api.onrender.com
-```
 
 ---
 
-## MongoDB Atlas
+## Datastores Setup
 
-1. Create a free M0 cluster at [cloud.mongodb.com](https://cloud.mongodb.com).
-2. Create a database user with read/write access.
-3. Whitelist `0.0.0.0/0` for Render IP access (or use Render's static IPs).
-4. Get the connection string: `mongodb+srv://USER:PASS@cluster.mongodb.net/vedaai?retryWrites=true&w=majority`
-5. Set `MONGO_URI` in both Render services.
+### MongoDB Atlas (Database)
+1. Register a free account at [cloud.mongodb.com](https://cloud.mongodb.com).
+2. Provision a free shared cluster (M0).
+3. Whitelist Network Access to `0.0.0.0/0` (allowing Render dynamic servers).
+4. Retrieve the standard MongoDB SRV connection string and save as `MONGO_URI`.
 
----
-
-## Redis (Upstash or similar)
-
-1. Create a Redis database at [upstash.com](https://upstash.com) or your preferred provider.
-2. Enable TLS (Upstash does this by default).
-3. Get the connection URL: `rediss://:PASSWORD@HOST:PORT`
-4. Set `REDIS_URL` in both Render services.
-
-> **Important**: Use `rediss://` (with double s) for TLS connections.
-> BullMQ requires native Redis protocol — do NOT use Upstash REST API.
+### Redis (Upstash)
+1. Register an account at [upstash.com](https://upstash.com).
+2. Provision a serverless Redis database.
+3. Enable TLS encryption.
+4. Retrieve the Redis connection string prefix with `rediss://` and save as `REDIS_URL`.
+   * **Note**: BullMQ requires native Redis connection protocol. Avoid using HTTP/REST endpoints.
 
 ---
 
-## Post-Deploy Test Checklist
+## Troubleshooting Deployment Issues
 
-1. **Health Check**
-   ```bash
-   curl https://your-api.onrender.com/api/health
-   ```
-   Expect: `{ "status": "ok", "mongo": "connected", "redis": "connected" }`
+### 1. API Server Fails to Start (Redis/Mongo Connection Timeout)
+* **Check**: Ensure that MongoDB Atlas Network Access is set to `0.0.0.0/0`.
+* **Check**: Double-check the password credentials in `MONGO_URI` and `REDIS_URL`. Special characters must be URL-encoded (e.g., `@` as `%40`).
 
-2. **Create Assignment**
-   - Open `https://your-app.vercel.app/assignments/create`
-   - Fill in the form and submit
-   - Verify assignment appears in the dashboard
+### 2. BullMQ Workers Not Processing Jobs
+* **Check**: If running on Render free tier, make sure `ENABLE_EMBEDDED_WORKER=true` is set. Otherwise, jobs will queue indefinitely if a standalone Background Worker service is not active.
+* **Check**: Verify `REDIS_URL` matches exactly. BullMQ cannot process jobs if the Redis connection fails.
 
-3. **Generate Paper**
-   - Click "Generate" on an assignment
-   - Verify progress steps appear via Socket.IO
-   - Verify generated paper renders correctly
+### 3. Socket.IO Connection Fails / Disconnects Immediately
+* **Check**: Verify CORS headers. Check that `ALLOWED_ORIGINS` on the backend includes the exact Vercel frontend URL, and matches what `WEB_URL` is set to.
+* **Check**: Ensure `NEXT_PUBLIC_SOCKET_URL` in Vercel is set to the HTTPS domain of the backend API (no trailing slash).
 
-4. **Download PDF**
-   - Click "Download PDF" on a generated paper
-   - Verify PDF downloads and renders correctly
-
-5. **CORS Check**
-   - Open browser DevTools → Network tab
-   - Verify no CORS errors on API calls from Vercel domain
-
-6. **Socket.IO Check**
-   - Open browser DevTools → Network tab → WS
-   - Verify WebSocket connection to API server
+### 4. Render Service Sleep / Slow Initial Load
+* **Behavior**: Render free Web Services spin down after 15 minutes of inactivity. The first request after a sleep period can take up to 50 seconds to boot up.
+* **Impact on Workers**: When the Web Service sleeps, any background generation jobs will pause. They will automatically resume immediately when the service is awoken.
