@@ -1,0 +1,105 @@
+@import 'tailwindcss';
+
+/* ─── Design Tokens (Figma) ─────────────────────────────────────────────── */
+:root {
+  /* Backgrounds */
+  --app-bg: #CECECE;
+  --desktop-bg-start: #EEEEEE;
+  --desktop-bg-end: #DADADA;
+
+  /* Text */
+  --text-primary: #303030;
+  --text-secondary: rgba(94, 94, 94, 0.8);
+  --text-muted: rgba(94, 94, 94, 0.55);
+  --disabled: #A9A9A9;
+
+  /* Surfaces */
+  --surface: #FFFFFF;
+  --surface-soft: #F6F6F6;
+  --surface-card: rgba(255, 255, 255, 0.75);
+  --surface-panel: rgba(255, 255, 255, 0.5);
+
+  /* Brand / Accent */
+  --primary: #181818;
+  --accent: #FF5623;
+  --success: #4BC26D;
+  --navy: #011625;
+  --light-navy: #417BA4;
+
+  /* Shadows */
+  --shadow-realistic: 0px 16px 48px rgba(0, 0, 0, 0.12),
+    0px 32px 48px rgba(0, 0, 0, 0.2);
+  --shadow-card: 0px 2px 12px rgba(0, 0, 0, 0.06);
+  --shadow-sidebar: 4px 0px 24px rgba(0, 0, 0, 0.06);
+  --shadow-float: 0px 8px 32px rgba(0, 0, 0, 0.15),
+    0px 2px 8px rgba(0, 0, 0, 0.08);
+
+  /* Layout */
+  --sidebar-width: 304px;
+  --topbar-height: 56px;
+  --mobile-header-height: 56px;
+  --mobile-bottom-nav-height: 72px;
+  --mobile-content-max: 373px;
+}
+
+/* ─── Tailwind v4 Theme Tokens ──────────────────────────────────────────── */
+@theme inline {
+  --color-app-bg: var(--app-bg);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-disabled: var(--disabled);
+  --color-surface: var(--surface);
+  --color-surface-soft: var(--surface-soft);
+  --color-surface-card: var(--surface-card);
+  --color-surface-panel: var(--surface-panel);
+  --color-primary: var(--primary);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-navy: var(--navy);
+  --color-light-navy: var(--light-navy);
+  --font-sans: var(--font-bricolage), system-ui, -apple-system, sans-serif;
+}
+
+/* ─── Base ──────────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--app-bg);
+  color: var(--text-primary);
+  letter-spacing: -0.04em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Desktop gradient background */
+@media (min-width: 1024px) {
+  body {
+    background: linear-gradient(180deg, var(--desktop-bg-start) 0%, var(--desktop-bg-end) 100%);
+    background-attachment: fixed;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+}
+
+/* ─── Paper / Print utilities ────────────────────────────────────────────── */
+.overflow-wrap-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}

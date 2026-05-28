@@ -1,0 +1,27 @@
+{
+  "name": "vedaai-assessment-creator",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm run --parallel dev:web dev:api dev:worker",
+    "dev:web": "pnpm --filter @vedaai/web dev",
+    "dev:api": "pnpm --filter @vedaai/api dev",
+    "dev:worker": "pnpm --filter @vedaai/api dev:worker",
+    "build": "pnpm build:api && pnpm build:web",
+    "build:api": "pnpm --filter @vedaai/api build",
+    "build:web": "pnpm --filter @vedaai/web build",
+    "start:api": "pnpm --filter @vedaai/api start",
+    "start:worker": "pnpm --filter @vedaai/api start:worker",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+services:
+  mongo:
+    image: mongo:7
+    ports:
+      - '27017:27017'
+    volumes:
+      - vedaai_mongo_data:/data/db
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    volumes:
+      - vedaai_redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  vedaai_mongo_data:
+  vedaai_redis_data:
