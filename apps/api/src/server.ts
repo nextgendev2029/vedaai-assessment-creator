@@ -15,9 +15,16 @@ import { assessmentQueue } from './queues/assessment.queue';
 import { pdfQueue } from './services/pdf/pdf-state.service';
 import { AppError, ValidationError } from './utils/errors';
 import { error as apiError } from './utils/api-response';
+import { createAssessmentWorker } from './workers/assessment.worker';
+import { createPdfWorker } from './workers/pdf.worker';
+import type { Worker } from 'bullmq';
 
 const app = express();
 const server = http.createServer(app);
+
+// References to embedded workers for graceful shutdown
+let embeddedAssessmentWorker: Worker | null = null;
+let embeddedPdfWorker: Worker | null = null;
 
 // ─── CORS setup ──────────────────────────────────────────────────────────────
 const allowedOrigins = getAllowedOrigins();
@@ -108,6 +115,15 @@ async function start(): Promise<void> {
       console.log(`   Web URL:  ${env.WEB_URL}`);
       console.log('');
     });
+
+    // Start embedded workers if enabled
+    if (env.ENABLE_EMBEDDED_WORKER) {
+      console.log('Embedded workers enabled');
+      embeddedAssessmentWorker = createAssessmentWorker();
+      console.log('Assessment worker started in API process');
+      embeddedPdfWorker = createPdfWorker();
+      console.log('PDF worker started in API process');
+    }
   } catch (error) {
     console.error('❌ Failed to start server:', error);
     process.exit(1);
@@ -117,12 +133,31 @@ async function start(): Promise<void> {
 // Graceful shutdown
 function shutdown(signal: string): void {
   console.log(`\n🛑 Received ${signal}. Shutting down gracefully...`);
-  server.close(() => {
-    console.log('✅ HTTP server closed');
-    redis.disconnect();
-    console.log('✅ Redis disconnected');
-    process.exit(0);
-  });
+
+  const closeWorkers: Promise<void>[] = [];
+  if (embeddedAssessmentWorker) {
+    closeWorkers.push(embeddedAssessmentWorker.close());
+  }
+  if (embeddedPdfWorker) {
+    closeWorkers.push(embeddedPdfWorker.close());
+  }
+
+  Promise.all(closeWorkers)
+    .then(() => {
+      if (closeWorkers.length > 0) {
+        console.log('✅ Embedded workers closed');
+      }
+      server.close(() => {
+        console.log('✅ HTTP server closed');
+        redis.disconnect();
+        console.log('✅ Redis disconnected');
+        process.exit(0);
+      });
+    })
+    .catch((err) => {
+      console.error('❌ Error during graceful worker shutdown:', err);
+      process.exit(1);
+    });
 }
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));

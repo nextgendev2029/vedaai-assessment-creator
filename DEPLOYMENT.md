@@ -60,6 +60,21 @@ GROQ_TEMPERATURE=0.4
 
 ---
 
+## Render — Free Tier / Single Service Option
+
+If you want to deploy on Render's free tier without paying for a separate Background Worker service, you can run both the API server and the BullMQ background workers in the same Web Service process:
+
+1. Follow the **Render — API Service** setup instructions above.
+2. In the environment variables for your Web Service, add:
+   ```
+   ENABLE_EMBEDDED_WORKER=true
+   ```
+3. Do **not** create the Render Background Worker service.
+4. **Caveat**: On Render's free tier, Web Services spin down after 15 minutes of inactivity. When spun down, background workers will be paused. When a user visits the site, the service will wake up, and processing of queued tasks will resume automatically.
+5. For high-volume production use cases, it is recommended to keep `ENABLE_EMBEDDED_WORKER=false` and run a separate, dedicated Background Worker.
+
+---
+
 ## Render — Worker Service
 
 | Setting         | Value                                        |

@@ -20,6 +20,12 @@ const envSchema = z.object({
     .transform((v) => v === 'true' || v === '1')
     .default('true'),
 
+  // Worker options
+  ENABLE_EMBEDDED_WORKER: z
+    .string()
+    .transform((v) => v === 'true' || v === '1')
+    .default('false'),
+
   // Gemini
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
